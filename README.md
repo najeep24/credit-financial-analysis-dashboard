@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Credit Analysis Dashboard
 
 A comprehensive Streamlit dashboard for credit analysis, designed as a copilot for credit analysts. This dashboard provides quick, explainable, and actionable insights from preprocessed credit analysis data.
