@@ -118,11 +118,10 @@ class ChartGenerator:
         ))
 
         fig.update_layout(
-            title=f'{metric_name.replace("_", " ").title()} Trend',
             xaxis_title='Year',
             yaxis_title='Value',
             height=300,
-            margin=dict(l=20, r=20, t=40, b=20),
+            margin=dict(l=20, r=20, t=20, b=20),
             showlegend=False
         )
 
@@ -189,3 +188,68 @@ class ChartGenerator:
             return f"▼ {abs(diff):.2f} ({abs(pct_change):.1f}%)", "#ef4444"
         else:
             return "– 0.00 (0.0%)", "#6b7280"
+
+    def create_multi_line_chart(self, df: pd.DataFrame, x_col: str, y_cols: list, title: str) -> go.Figure:
+        """Create a multi-line chart for comparing multiple metrics"""
+        if df.empty or not y_cols:
+            return go.Figure()
+
+        fig = go.Figure()
+
+        colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c']
+
+        for i, col in enumerate(y_cols):
+            if col in df.columns:
+                fig.add_trace(go.Scatter(
+                    x=df[x_col],
+                    y=df[col],
+                    mode='lines+markers',
+                    name=col,
+                    line=dict(color=colors[i % len(colors)], width=2),
+                    marker=dict(size=6),
+                    hovertemplate=f'<b>{col}</b><br>{x_col}: %{{x}}<br>Value: %{{y:,.0f}}<extra></extra>'
+                ))
+
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_col.title(),
+            yaxis_title='Value',
+            height=300,
+            margin=dict(l=20, r=20, t=40, b=20),
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+
+        return fig
+
+    def create_clustered_bar_chart(self, df: pd.DataFrame, x_col: str, y_cols: list, title: str) -> go.Figure:
+        """Create a clustered bar chart for comparing multiple categories"""
+        if df.empty or not y_cols:
+            return go.Figure()
+
+        fig = go.Figure()
+
+        colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#9333ea', '#ea580c']
+
+        for i, col in enumerate(y_cols):
+            if col in df.columns:
+                fig.add_trace(go.Bar(
+                    x=df[x_col],
+                    y=df[col],
+                    name=col,
+                    marker_color=colors[i % len(colors)],
+                    hovertemplate=f'<b>{col}</b><br>{x_col}: %{{x}}<br>Value: %{{y:,.0f}}<extra></extra>'
+                ))
+
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_col.title(),
+            yaxis_title='Value',
+            height=300,
+            margin=dict(l=20, r=20, t=40, b=20),
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            barmode='group'
+        )
+
+        return fig

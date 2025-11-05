@@ -22,65 +22,46 @@ def show_ratio_explorer(data_loader, data, current_firm):
     # Group ratios by category for better organization
     ratio_categories = {
         'Liquidity Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['current_ratio', 'quick_ratio', 'cash_ratio', 'working_capital'])],
-        'Solvency Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['debt_to_equity', 'debt_to_assets', 'equity_to_assets', 'leverage'])],
-        'Profitability Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['roa', 'roe', 'gross_margin', 'net_profit_margin', 'ebitda_margin'])],
+        'Solvency Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['debt_to_equity', 'debt_to_assets', 'equity_to_assets', 'leverage', 'long_term_debt_ratio'])],
+        'Profitability Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['roa', 'roe', 'gross_margin', 'gross_profit_margin', 'net_profit_margin', 'ebitda_margin'])],
         'Activity/Efficiency Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['turnover', 'days_', 'asset_turnover', 'inventory_turnover'])],
-        'Coverage Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['coverage', 'dscr', 'interest_coverage'])],
-        'Cash Flow Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['ocf', 'fcf', 'cash_flow', 'cash_conversion'])],
-        'Other Ratios': []  # Catch-all
+        'Cash Flow Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['ocf_ratio', 'free_cash_flow', 'cash_quality_ratio'])],
+        'Structure Ratios': [col for col in ratio_columns if any(x in col.lower() for x in ['fund_flow', 'equity_to_asset', 'net_margin_ratio'])]
     }
 
-    # Move uncategorized ratios to 'Other'
+    # Remove uncategorized ratios (don't show 'Other Ratios' category)
     categorized_ratios = set()
     for category_ratios in ratio_categories.values():
         categorized_ratios.update(category_ratios)
 
-    uncategorized = [col for col in ratio_columns if col not in categorized_ratios]
-    ratio_categories['Other Ratios'] = uncategorized
-
-    # Category selector
-    selected_category = st.selectbox(
-        "Select Ratio Category:",
-        list(ratio_categories.keys()),
-        index=0
-    )
-
     st.markdown("---")
 
-    # Display ratios for selected category
-    category_ratios = ratio_categories[selected_category]
+    # Display all ratio categories (no selectbox)
+    for category_name, category_ratios in ratio_categories.items():
+        if not category_ratios:
+            continue
 
-    if not category_ratios:
-        st.info(f"No ratios found in {selected_category}")
-        return
+        st.markdown(f"## {category_name}")
 
-    # Display each ratio as a panel
-    for ratio in category_ratios:
-        _display_ratio_panel(ratio, df_ratios, df_agg, chart_gen)
+        # Display ratios in 3-column layout
+        for i in range(0, len(category_ratios), 3):
+            cols = st.columns(3)
+            for j, ratio in enumerate(category_ratios[i:i+3]):
+                with cols[j]:
+                    _display_ratio_panel(ratio, df_ratios, df_agg, chart_gen)
 
 def _display_ratio_panel(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.DataFrame, chart_gen):
     """Display a single ratio panel with all details"""
     with st.container():
-        st.markdown('<div class="aspect-card">', unsafe_allow_html=True)
+        st.markdown('<div class="aspect-card" style="padding: 1rem;">', unsafe_allow_html=True)
 
         # Header
-        col1, col2 = st.columns([3, 1])
+        display_name = ratio_name.replace('_', ' ').title()
+        st.markdown(f"### {display_name}")
 
-        with col1:
-            display_name = ratio_name.replace('_', ' ').title()
-            st.markdown(f"### {display_name}")
-
-            # Add formula tooltip if available
-            formula = _get_ratio_formula(ratio_name)
-            if formula:
-                st.caption(f"Formula: {formula}")
-
-        with col2:
-            # Source indicator
-            st.markdown("**Source:** df_ratios")
-
-        # Top KPIs section
-        _display_kpi_section(ratio_name, df_ratios, chart_gen)
+  
+        # Top KPIs section (1 column with st.metric)
+        _display_kpi_section(ratio_name, df_ratios, df_agg)
 
         # Yearly trend chart
         _display_trend_section(ratio_name, df_ratios, chart_gen)
@@ -90,8 +71,8 @@ def _display_ratio_panel(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.Da
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-def _display_kpi_section(ratio_name: str, df_ratios: pd.DataFrame, chart_gen):
-    """Display top KPIs with trend indicators"""
+def _display_kpi_section(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.DataFrame):
+    """Display top KPIs with trend indicators - single column layout"""
     if df_ratios.empty:
         return
 
@@ -117,55 +98,40 @@ def _display_kpi_section(ratio_name: str, df_ratios: pd.DataFrame, chart_gen):
         st.info("No data available for latest period")
         return
 
-    # KPI columns
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+    # Calculate diff and percentage change
+    if pd.notna(previous_value) and previous_value != 0:
+        abs_change = latest_value - previous_value
+        pct_change = (abs_change / previous_value) * 100
+    else:
+        abs_change = 0
+        pct_change = 0
 
-    with col1:
-        st.metric(
-            f"{latest_year} Value",
-            f"{latest_value:.3f}",
-            delta=None
-        )
+    # Create delta text (without arrow since delta already provides it)
+    if pd.notna(previous_value):
+        delta_text = f"{abs(abs_change):.3f}/{abs(pct_change):.1f}%"
+        delta_color = "normal" if abs_change >= 0 else "inverse"
+    else:
+        delta_text = "N/A"
+        delta_color = "normal"
 
-    with col2:
-        if pd.notna(previous_value):
-            pct_change = ((latest_value - previous_value) / previous_value) * 100 if previous_value != 0 else 0
-            st.metric(
-                "% Change",
-                f"{pct_change:.1f}%",
-                delta=f"{pct_change:.1f}%",
-                delta_color="normal" if abs(pct_change) < 5 else ("inverse" if pct_change < 0 else "normal")
-            )
-        else:
-            st.metric("% Change", "N/A")
-
-    with col3:
-        if pd.notna(previous_value):
-            abs_change = latest_value - previous_value
-            st.metric(
-                "Abs Change",
-                f"{abs_change:.3f}",
-                delta=f"{abs_change:.3f}",
-                delta_color="normal" if abs(abs_change) < 0.1 else ("inverse" if abs_change < 0 else "normal")
-            )
-        else:
-            st.metric("Abs Change", "N/A")
-
-    with col4:
-        # Direction indicator
-        if pd.notna(previous_value):
-            if latest_value > previous_value:
-                st.markdown("📈 **Improving**")
-            elif latest_value < previous_value:
-                st.markdown("📉 **Declining**")
-            else:
-                st.markdown("➡️ **Stable**")
-        else:
-            st.markdown("➡️ **Stable**")
+    # Display single metric with delta
+    st.metric(
+        label=f"{ratio_name.replace('_', ' ').title()}",
+        value=f"{latest_value:.3f}",
+        delta=delta_text,
+        delta_color=delta_color
+    )
 
 def _display_trend_section(ratio_name: str, df_ratios: pd.DataFrame, chart_gen):
     """Display yearly trend chart"""
-    st.markdown("#### Historical Trend")
+    if df_ratios.empty:
+        return
+
+    # Check if we have sufficient data for trend chart
+    valid_data = df_ratios[ratio_name].dropna()
+    if len(valid_data) < 2:
+        st.info("Insufficient data for trend chart")
+        return
 
     trend_fig = chart_gen.create_trend_chart(df_ratios, ratio_name)
     st.plotly_chart(trend_fig, use_container_width=True)
@@ -179,14 +145,12 @@ def _display_stats_section(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.
 
         # Calculate stats from df_ratios if df_agg doesn't have them
         if df_agg is not None and not df_agg.empty:
-            mean_val = df_agg[f"{ratio_name}_mean"].iloc[0] if f"{ratio_name}_mean" in df_agg.columns else None
             std_val = df_agg[f"{ratio_name}_std"].iloc[0] if f"{ratio_name}_std" in df_agg.columns else None
             trend_val = df_agg[f"{ratio_name}_trend"].iloc[0] if f"{ratio_name}_trend" in df_agg.columns else None
         else:
             # Calculate from df_ratios
             values = df_ratios[ratio_name].dropna()
             if not values.empty:
-                mean_val = values.mean()
                 std_val = values.std()
                 # Simple trend calculation (linear regression slope)
                 if len(values) > 1:
@@ -195,14 +159,17 @@ def _display_stats_section(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.
                 else:
                     trend_val = None
             else:
-                mean_val = std_val = trend_val = None
+                std_val = trend_val = None
 
-        if pd.notna(mean_val):
-            st.markdown(f"• **Mean:** {mean_val:.3f}")
+        # Standard deviation and stability status
         if pd.notna(std_val):
-            st.markdown(f"• **Std Dev:** {std_val:.3f}")
+            stability_status = _get_stability_status(std_val)
+            st.markdown(f"• **Std Dev:** {std_val:.3f} ({stability_status})")
+
+        # Trend and trend status
         if pd.notna(trend_val):
-            st.markdown(f"• **Trend:** {trend_val:.4f}")
+            trend_status, trend_color = _get_trend_status(trend_val)
+            st.markdown(f"• **Trend:** {trend_status} {trend_color}")
 
         # Data points count
         valid_points = df_ratios[ratio_name].dropna().shape[0]
@@ -213,87 +180,69 @@ def _display_stats_section(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.
         st.markdown("**Interpretation:**")
 
         # Generate interpretation based on stats
-        interpretation = _generate_ratio_interpretation(ratio_name, mean_val, std_val, trend_val)
+        interpretation = _generate_ratio_interpretation(ratio_name, std_val, trend_val)
         st.markdown(interpretation)
 
-def _generate_ratio_interpretation(ratio_name: str, mean_val: float, std_val: float, trend_val: float) -> str:
-    """Generate interpretation for a ratio"""
-    if pd.isna(mean_val):
-        return "No sufficient data for interpretation."
+def _get_stability_status(std_val: float) -> str:
+    """Get stability status based on standard deviation"""
+    if std_val < 0.05:
+        return "High Stability"
+    elif std_val < 0.15:
+        return "Moderate Stability"
+    else:
+        return "High Volatility"
 
-    ratio_lower = ratio_name.lower()
+def _get_trend_status(trend_val: float) -> tuple:
+    """Get trend status and color indicator"""
+    if trend_val > 0.02:
+        return ("Improving", "🟢")
+    elif trend_val < -0.02:
+        return ("Declining", "🔴")
+    else:
+        return ("Stable", "🟡")
+
+def _generate_ratio_interpretation(ratio_name: str, std_val: float, trend_val: float) -> str:
+    """Generate interpretation for a ratio based on stability and trend"""
     interpretation_parts = []
-
-    # Mean interpretation
-    if any(x in ratio_lower for x in ['current_ratio', 'quick_ratio', 'cash_ratio']):
-        if mean_val > 2.0:
-            interpretation_parts.append("The company maintains **strong liquidity** with comfortable buffer to meet short-term obligations.")
-        elif mean_val > 1.5:
-            interpretation_parts.append("The company shows **adequate liquidity** to meet short-term obligations.")
-        elif mean_val > 1.0:
-            interpretation_parts.append("The company has **marginal liquidity** and may face challenges meeting short-term obligations.")
-        else:
-            interpretation_parts.append("The company has **weak liquidity** and potential difficulty meeting short-term obligations.")
-
-    elif any(x in ratio_lower for x in ['debt_to_equity', 'debt_to_assets']):
-        if mean_val < 0.5:
-            interpretation_parts.append("The company maintains **conservative leverage** with low debt levels.")
-        elif mean_val < 1.0:
-            interpretation_parts.append("The company has **moderate leverage** within acceptable ranges.")
-        else:
-            interpretation_parts.append("The company shows **high leverage** which may increase financial risk.")
-
-    elif any(x in ratio_lower for x in ['roa', 'roe', 'net_profit_margin']):
-        if mean_val > 0.10:
-            interpretation_parts.append("The company demonstrates **strong profitability** compared to industry standards.")
-        elif mean_val > 0.05:
-            interpretation_parts.append("The company shows **moderate profitability** with room for improvement.")
-        else:
-            interpretation_parts.append("The company has **low profitability** and may need operational improvements.")
-
-    elif any(x in ratio_lower for x in ['interest_coverage', 'dscr']):
-        if mean_val > 3.0:
-            interpretation_parts.append("The company has **excellent coverage** ability for debt obligations.")
-        elif mean_val > 2.0:
-            interpretation_parts.append("The company maintains **adequate coverage** for debt obligations.")
-        else:
-            interpretation_parts.append("The company has **weak coverage** and may struggle with debt obligations.")
-
-    elif 'days_' in ratio_lower:
-        if 'inventory' in ratio_lower:
-            if mean_val < 45:
-                interpretation_parts.append("The company shows **efficient inventory management** with quick turnover.")
-            elif mean_val < 90:
-                interpretation_parts.append("The company has **moderate inventory turnover**.")
-            else:
-                interpretation_parts.append("The company has **slow inventory turnover** which may tie up capital.")
-        elif 'receivable' in ratio_lower:
-            if mean_val < 30:
-                interpretation_parts.append("The company has **excellent collection efficiency**.")
-            elif mean_val < 60:
-                interpretation_parts.append("The company shows **good collection efficiency**.")
-            else:
-                interpretation_parts.append("The company has **slow collection** which may affect cash flow.")
 
     # Stability interpretation
     if pd.notna(std_val):
         if std_val < 0.05:
-            interpretation_parts.append("The metric shows **high stability** over time.")
+            interpretation_parts.append("The metric shows **high stability** over time with consistent performance.")
         elif std_val < 0.15:
-            interpretation_parts.append("The metric shows **moderate stability** with some fluctuations.")
+            interpretation_parts.append("The metric shows **moderate stability** with some acceptable fluctuations.")
         else:
-            interpretation_parts.append("The metric shows **high volatility** indicating inconsistency.")
+            interpretation_parts.append("The metric shows **high volatility** indicating inconsistent performance that may require attention.")
 
     # Trend interpretation
     if pd.notna(trend_val):
         if trend_val > 0.02:
-            interpretation_parts.append("There is a **positive improving trend** over time.")
+            interpretation_parts.append("There is a **positive improving trend** over time, suggesting favorable development.")
         elif trend_val < -0.02:
-            interpretation_parts.append("There is a **declining trend** that may require attention.")
+            interpretation_parts.append("There is a **declining trend** that may require management attention and intervention.")
         else:
-            interpretation_parts.append("The metric remains **relatively stable** over time.")
+            interpretation_parts.append("The metric remains **relatively stable** over time without significant directional change.")
 
-    return " ".join(interpretation_parts) if interpretation_parts else "Metric analysis available."
+    # Ratio-specific interpretation based on trend
+    ratio_lower = ratio_name.lower()
+    if pd.notna(trend_val):
+        if any(x in ratio_lower for x in ['current_ratio', 'quick_ratio', 'cash_ratio']):
+            if trend_val > 0.02:
+                interpretation_parts.append("Liquidity position is **strengthening**, improving ability to meet short-term obligations.")
+            elif trend_val < -0.02:
+                interpretation_parts.append("Liquidity position is **weakening**, potentially creating short-term financial stress.")
+        elif any(x in ratio_lower for x in ['debt_to_equity', 'debt_to_assets']):
+            if trend_val > 0.02:
+                interpretation_parts.append("Leverage is **increasing**, potentially raising financial risk profile.")
+            elif trend_val < -0.02:
+                interpretation_parts.append("Leverage is **decreasing**, strengthening the balance sheet position.")
+        elif any(x in ratio_lower for x in ['roa', 'roe', 'net_profit_margin']):
+            if trend_val > 0.02:
+                interpretation_parts.append("Profitability is **improving**, indicating better operational efficiency.")
+            elif trend_val < -0.02:
+                interpretation_parts.append("Profitability is **declining**, suggesting operational challenges that need addressing.")
+
+    return " ".join(interpretation_parts) if interpretation_parts else "Insufficient data for comprehensive interpretation."
 
 def _get_ratio_formula(ratio_name: str) -> str:
     """Get formula for common ratios"""
