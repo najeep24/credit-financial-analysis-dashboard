@@ -5,7 +5,6 @@ from utils.charts import ChartGenerator
 
 # Page imports
 from pages.analysis_summary import show_analysis_summary
-from pages.performance_insight import show_performance_insight
 from pages.ratio_explorer import show_ratio_explorer
 from pages.financials_explorer import show_financials_explorer
 
@@ -43,10 +42,10 @@ st.markdown("""
 
     .aspect-card {
         background: white;
-        padding: 1.5rem;
+        padding: 1rem;
         border-radius: 0.5rem;
         border: 1px solid #e5e7eb;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
@@ -115,7 +114,6 @@ def main():
             "Navigate to:",
             [
                 "📈 Analysis Summary",
-                "🔍 Performance Insight Deck",
                 "🧮 Sub-Ratio Explorer",
                 "💰 Financial Statements"
             ],
@@ -125,8 +123,6 @@ def main():
     # Main content
     if page == "📈 Analysis Summary":
         show_analysis_summary(data_loader, data, current_firm)
-    elif page == "🔍 Performance Insight Deck":
-        show_performance_insight(data_loader, data, current_firm)
     elif page == "🧮 Sub-Ratio Explorer":
         show_ratio_explorer(data_loader, data, current_firm)
     elif page == "💰 Financial Statements":
