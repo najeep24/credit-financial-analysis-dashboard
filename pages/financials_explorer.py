@@ -37,17 +37,25 @@ def show_financials_explorer(data_loader, data, current_firm):
     # Tabs for different statements (without Company Info tab)
     tab1, tab2, tab3 = st.tabs(["Balance Sheet", "Income Statement", "Cash Flow"])
 
-    # Display company info above tabs
-    st.markdown("### 🏢 Company Information")
-    _display_company_info(df_company)
-
     with tab1:
+        st.markdown("### Financial Statements")
+        st.markdown("**Company Information**")
+        _display_company_info(df_company)
+        st.markdown("---")
         _display_balance_sheet(df_balance, chart_gen)
 
     with tab2:
+        st.markdown("### Financial Statements")
+        st.markdown("**Company Information**")
+        _display_company_info(df_company)
+        st.markdown("---")
         _display_income_statement(df_income, chart_gen)
 
     with tab3:
+        st.markdown("### Financial Statements")
+        st.markdown("**Company Information**")
+        _display_company_info(df_company)
+        st.markdown("---")
         _display_cash_flow_statement(df_cash_flow, chart_gen)
 
 def _display_key_financial_variables(data: dict, chart_gen):
@@ -112,17 +120,7 @@ def _display_key_financial_variables(data: dict, chart_gen):
 
             row[str(year)] = value
 
-        # Calculate YoY change percentage
-        if len(observation_years) >= 2:
-            current_val = row.get(str(observation_years[-1]))
-            prev_val = row.get(str(observation_years[-2]))
-
-            if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
-                change_pct = ((current_val - prev_val) / prev_val) * 100
-                row['Change %'] = change_pct
-            else:
-                row['Change %'] = None
-
+  
         df_display_data.append(row)
 
     # Convert to DataFrame and display
@@ -131,13 +129,12 @@ def _display_key_financial_variables(data: dict, chart_gen):
     # Display as formatted table
     st.markdown("### Key Financial Variables Overview")
 
-    # Create columns: Variable + observation years + change %
+    # Create columns: Variable + observation years (no change column)
     num_years = len(observation_years)
-    col_widths = [3] + [1.5] * num_years + [1]  # Variable column + year columns + change column
-
-    cols = st.columns(col_widths)
+    col_widths = [3] + [1.5] * num_years  # Variable column + year columns
 
     # Headers
+    cols = st.columns(col_widths)
     with cols[0]:
         st.markdown("**Variable**")
 
@@ -145,13 +142,11 @@ def _display_key_financial_variables(data: dict, chart_gen):
         with cols[i + 1]:
             st.markdown(f"**{year}**")
 
-    with cols[-1]:
-        st.markdown("**Change %**")
-
     st.markdown("---")
 
-    # Data rows
+    # Data rows with deltas below values
     for _, row in df_key_vars.iterrows():
+        # First row: Variable name and values
         cols = st.columns(col_widths)
 
         with cols[0]:
@@ -165,17 +160,30 @@ def _display_key_financial_variables(data: dict, chart_gen):
                 else:
                     st.markdown("—")
 
-        with cols[-1]:
-            change_pct = row.get('Change %')
-            if pd.notna(change_pct):
-                if change_pct > 0:
-                    st.markdown(f"📈 +{change_pct:.1f}%")
-                elif change_pct < 0:
-                    st.markdown(f"📉 {change_pct:.1f}%")
+        # Second row: Empty for variable name, delta indicators below values
+        cols = st.columns(col_widths)
+        with cols[0]:
+            st.markdown("&nbsp;")  # Placeholder under variable name
+
+        for i, year in enumerate(observation_years):
+            with cols[i + 1]:
+                if i == 0:
+                    st.markdown("—")  # First year has no delta
                 else:
-                    st.markdown("➡️ 0.0%")
-            else:
-                st.markdown("—")
+                    prev_year = observation_years[i - 1]
+                    current_val = row.get(str(year))
+                    prev_val = row.get(str(prev_year))
+
+                    if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
+                        delta = ((current_val - prev_val) / prev_val) * 100
+                        if delta > 0:
+                            st.markdown(f"<small style='color:green'>↑ +{delta:.1f}%</small>", unsafe_allow_html=True)
+                        elif delta < 0:
+                            st.markdown(f"<small style='color:red'>↓ {abs(delta):.1f}%</small>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<small>→ 0.0%</small>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("—")
 
         st.markdown("---")
 
@@ -307,18 +315,74 @@ def _display_financial_charts(data: dict, chart_gen):
         st.plotly_chart(fig3, use_container_width=True)
 
 def _display_company_info(df_company: pd.DataFrame):
-    """Display company information"""
+    """Display company information with improved hierarchical layout"""
     if df_company is None or df_company.empty:
         st.info("No company information available")
         return
 
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    st.markdown('<div class="metric-card" style="padding: 1.5rem;">', unsafe_allow_html=True)
 
+    # Group information by category for better hierarchy
+    company_info = {}
     for col in df_company.columns:
         if col != 'firm_id':
             value = df_company[col].iloc[0]
             if pd.notna(value):
-                st.markdown(f"**{col.replace('_', ' ').title()}:** {value}")
+                company_info[col] = value
+
+    if company_info:
+        # Primary company identification (top priority)
+        primary_info = []
+        if 'company_name' in company_info:
+            primary_info.append(f"**{company_info['company_name']}**")
+        if 'ticker_symbol' in company_info:
+            primary_info.append(f"({company_info['ticker_symbol']})")
+
+        if primary_info:
+            st.markdown("### " + " ".join(primary_info))
+            st.markdown("")
+
+        # Core business information
+        business_info = []
+        if 'sector' in company_info:
+            business_info.append(f"**Sector:** {company_info['sector']}")
+        if 'industry' in company_info:
+            business_info.append(f"**Industry:** {company_info['industry']}")
+        if 'business_description' in company_info:
+            business_info.append(f"**Description:** {company_info['business_description']}")
+
+        if business_info:
+            for info in business_info:
+                st.markdown(info)
+            st.markdown("")
+
+        # Financial information
+        financial_info = []
+        if 'market_cap' in company_info:
+            financial_info.append(f"**Market Cap:** {company_info['market_cap']}")
+        if 'revenue' in company_info:
+            financial_info.append(f"**Revenue:** {company_info['revenue']}")
+        if 'employees' in company_info:
+            financial_info.append(f"**Employees:** {company_info['employees']}")
+
+        if financial_info:
+            cols = st.columns(len(financial_info))
+            for i, info in enumerate(financial_info):
+                with cols[i]:
+                    st.markdown(f"<div style='text-align: center; padding: 0.5rem; background-color: #f0f2f6; border-radius: 0.5rem;'>{info}</div>", unsafe_allow_html=True)
+            st.markdown("")
+
+        # Additional information
+        additional_info = []
+        remaining_keys = [k for k in company_info.keys() if k not in ['company_name', 'ticker_symbol', 'sector', 'industry', 'business_description', 'market_cap', 'revenue', 'employees']]
+
+        for key in remaining_keys:
+            additional_info.append(f"**{key.replace('_', ' ').title()}:** {company_info[key]}")
+
+        if additional_info:
+            with st.expander("Additional Information", expanded=False):
+                for info in additional_info:
+                    st.markdown(info)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -343,94 +407,87 @@ def _display_balance_sheet(df_balance: pd.DataFrame, chart_gen):
     if 'firm_id' in numeric_cols:
         numeric_cols.remove('firm_id')
 
-    # Sort columns logically
-    priority_items = {
-        'Assets': ['cash', 'receivable', 'inventory', 'other_current', 'current_assets', 'ppe_net', 'other_noncurrent', 'non_current_assets', 'total_assets'],
-        'Liabilities': ['short_term_debt', 'accounts_payable', 'other_current_liabilities', 'current_liabilities', 'long_term_debt', 'total_liabilities'],
-        'Equity': ['equity_end', 'capital', 'reserves', 'retained_earnings', 'total_equity']
-    }
+    # Define exact variable order according to guidelines
+    balance_sheet_variables = [
+        'cash', 'receivables', 'inventory', 'other_current_assets', 'total_current_assets',
+        'ppe_gross', 'accum_depreciation', 'ppe_net', 'other_noncurrent_assets', 'total_assets',
+        'payables', 'other_current_liabilities', 'current_debt', 'total_current_liabilities',
+        'long_term_debt', 'total_liabilities', 'equity_begin', 'dividends', 'equity_injection',
+        'equity_end', 'total_liabilities_and_equity'
+    ]
 
-    # Create data structure for display
+    # Create data structure for display using exact variable order
     balance_data = {}
 
-    for col in numeric_cols:
-        display_name = col.replace('_', ' ').title()
-        balance_data[display_name] = {}
+    for var_name in balance_sheet_variables:
+        if var_name in numeric_cols:
+            display_name = var_name.replace('_', ' ').title()
+            balance_data[display_name] = {}
 
-        for year in observation_years:
-            year_data = df_balance[df_balance['year'] == year]
-            if not year_data.empty and col in year_data.columns:
-                value = year_data[col].iloc[0]
-                balance_data[display_name][str(year)] = value if pd.notna(value) else None
-            else:
-                balance_data[display_name][str(year)] = None
+            for year in observation_years:
+                year_data = df_balance[df_balance['year'] == year]
+                if not year_data.empty and var_name in year_data.columns:
+                    value = year_data[var_name].iloc[0]
+                    balance_data[display_name][str(year)] = value if pd.notna(value) else None
+                else:
+                    balance_data[display_name][str(year)] = None
 
-        # Calculate YoY change percentages
-        if len(observation_years) >= 2:
-            current_val = balance_data[display_name].get(str(observation_years[-1]))
-            prev_val = balance_data[display_name].get(str(observation_years[-2]))
-
-            if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
-                change_pct = ((current_val - prev_val) / prev_val) * 100
-                balance_data[display_name]['Change %'] = change_pct
-            else:
-                balance_data[display_name]['Change %'] = None
-
-    # Create column layout: Item + years + change %
+    # Create column layout: Item + years (no change column)
     num_years = len(observation_years)
-    col_widths = [3] + [1.2] * num_years + [1]  # Item column + year columns + change column
+    col_widths = [3] + [1.2] * num_years  # Item column + year columns
 
-    # Display by categories
-    for category, keywords in priority_items.items():
-        category_items = {}
+    if balance_data:
+        # Headers
+        cols = st.columns(col_widths)
+        with cols[0]:
+            st.markdown("**Item**")
+        for i, year in enumerate(observation_years):
+            with cols[i + 1]:
+                st.markdown(f"**{year}**")
+        st.markdown("---")
 
-        # Find items that match category keywords
-        for display_name in balance_data.keys():
-            if any(keyword in display_name.lower() for keyword in keywords):
-                category_items[display_name] = balance_data[display_name]
-
-        if category_items:
-            st.markdown(f"### 📊 {category}")
-
-            # Headers
+        # Data rows with deltas below values (in specified order)
+        for item_name, item_data in balance_data.items():
+            # First row: Item name and values
             cols = st.columns(col_widths)
+
             with cols[0]:
-                st.markdown("**Item**")
+                st.markdown(f"**{item_name}**")
+
             for i, year in enumerate(observation_years):
                 with cols[i + 1]:
-                    st.markdown(f"**{year}**")
-            with cols[-1]:
-                st.markdown("**Change %**")
-            st.markdown("---")
-
-            # Data rows
-            for item_name, item_data in category_items.items():
-                cols = st.columns(col_widths)
-
-                with cols[0]:
-                    st.markdown(f"**{item_name}**")
-
-                for i, year in enumerate(observation_years):
-                    with cols[i + 1]:
-                        value = item_data.get(str(year))
-                        if pd.notna(value):
-                            st.markdown(f"{chart_gen.format_number(value, 0)}")
-                        else:
-                            st.markdown("—")
-
-                with cols[-1]:
-                    change_pct = item_data.get('Change %')
-                    if pd.notna(change_pct):
-                        if change_pct > 0:
-                            st.markdown(f"📈 +{change_pct:.1f}%")
-                        elif change_pct < 0:
-                            st.markdown(f"📉 {change_pct:.1f}%")
-                        else:
-                            st.markdown("➡️ 0.0%")
+                    value = item_data.get(str(year))
+                    if pd.notna(value):
+                        st.markdown(f"{chart_gen.format_number(value, 0)}")
                     else:
                         st.markdown("—")
 
-                st.markdown("---")
+            # Second row: Empty for item name, delta indicators below values
+            cols = st.columns(col_widths)
+            with cols[0]:
+                st.markdown("&nbsp;")  # Placeholder under item name
+
+            for i, year in enumerate(observation_years):
+                with cols[i + 1]:
+                    if i == 0:
+                        st.markdown("—")  # First year has no delta
+                    else:
+                        prev_year = observation_years[i - 1]
+                        current_val = item_data.get(str(year))
+                        prev_val = item_data.get(str(prev_year))
+
+                        if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
+                            delta = ((current_val - prev_val) / prev_val) * 100
+                            if delta > 0:
+                                st.markdown(f"<small style='color:green'>↑ +{delta:.1f}%</small>", unsafe_allow_html=True)
+                            elif delta < 0:
+                                st.markdown(f"<small style='color:red'>↓ {abs(delta):.1f}%</small>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<small>→ 0.0%</small>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("—")
+
+            st.markdown("---")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -455,96 +512,84 @@ def _display_income_statement(df_income: pd.DataFrame, chart_gen):
     if 'firm_id' in numeric_cols:
         numeric_cols.remove('firm_id')
 
-    # Sort by typical income statement order
-    priority_order = [
-        'revenue', 'sales', 'turnover',
-        'cost', 'cogs', 'cost_of_goods',
-        'gross', 'gross_profit', 'gross_margin',
-        'operating', 'ebit', 'operating_income',
-        'interest', 'interest_expense', 'interest_income',
-        'tax', 'tax_expense',
-        'net', 'net_income', 'profit', 'earnings'
+    # Define exact variable order according to guidelines
+    income_statement_variables = [
+        'revenue', 'cogs', 'gross_profit', 'opex', 'ebitda', 'depreciation',
+        'ebit', 'interest_expense', 'ebt', 'tax', 'net_income'
     ]
 
-    # Create data structure for display
+    # Create data structure for display using exact variable order
     income_data = {}
 
-    # Sort columns by priority
-    sorted_cols = []
-    for priority in priority_order:
-        matches = [col for col in numeric_cols if priority in col.lower()]
-        sorted_cols.extend(matches)
+    for var_name in income_statement_variables:
+        if var_name in numeric_cols:
+            display_name = var_name.replace('_', ' ').title()
+            income_data[display_name] = {}
 
-    # Add remaining columns
-    remaining_cols = [col for col in numeric_cols if col not in sorted_cols]
-    sorted_cols.extend(remaining_cols)
+            for year in observation_years:
+                year_data = df_income[df_income['year'] == year]
+                if not year_data.empty and var_name in year_data.columns:
+                    value = year_data[var_name].iloc[0]
+                    income_data[display_name][str(year)] = value if pd.notna(value) else None
+                else:
+                    income_data[display_name][str(year)] = None
 
-    for col in sorted_cols:
-        display_name = col.replace('_', ' ').title()
-        income_data[display_name] = {}
-
-        for year in observation_years:
-            year_data = df_income[df_income['year'] == year]
-            if not year_data.empty and col in year_data.columns:
-                value = year_data[col].iloc[0]
-                income_data[display_name][str(year)] = value if pd.notna(value) else None
-            else:
-                income_data[display_name][str(year)] = None
-
-        # Calculate YoY change percentages
-        if len(observation_years) >= 2:
-            current_val = income_data[display_name].get(str(observation_years[-1]))
-            prev_val = income_data[display_name].get(str(observation_years[-2]))
-
-            if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
-                change_pct = ((current_val - prev_val) / prev_val) * 100
-                income_data[display_name]['Change %'] = change_pct
-            else:
-                income_data[display_name]['Change %'] = None
-
-    # Create column layout: Item + years + change %
+    # Create column layout: Item + years (no change column)
     num_years = len(observation_years)
-    col_widths = [3] + [1.2] * num_years + [1]  # Item column + year columns + change column
+    col_widths = [3] + [1.2] * num_years  # Item column + year columns
 
-    # Headers
-    cols = st.columns(col_widths)
-    with cols[0]:
-        st.markdown("**Item**")
-    for i, year in enumerate(observation_years):
-        with cols[i + 1]:
-            st.markdown(f"**{year}**")
-    with cols[-1]:
-        st.markdown("**Change %**")
-    st.markdown("---")
-
-    # Data rows
-    for item_name, item_data in income_data.items():
+    if income_data:
+        # Headers
         cols = st.columns(col_widths)
-
         with cols[0]:
-            st.markdown(f"**{item_name}**")
-
+            st.markdown("**Item**")
         for i, year in enumerate(observation_years):
             with cols[i + 1]:
-                value = item_data.get(str(year))
-                if pd.notna(value):
-                    st.markdown(f"{chart_gen.format_number(value, 0)}")
-                else:
-                    st.markdown("—")
-
-        with cols[-1]:
-            change_pct = item_data.get('Change %')
-            if pd.notna(change_pct):
-                if change_pct > 0:
-                    st.markdown(f"📈 +{change_pct:.1f}%")
-                elif change_pct < 0:
-                    st.markdown(f"📉 {change_pct:.1f}%")
-                else:
-                    st.markdown("➡️ 0.0%")
-            else:
-                st.markdown("—")
-
+                st.markdown(f"**{year}**")
         st.markdown("---")
+
+        # Data rows with deltas below values (in specified order)
+        for item_name, item_data in income_data.items():
+            # First row: Item name and values
+            cols = st.columns(col_widths)
+
+            with cols[0]:
+                st.markdown(f"**{item_name}**")
+
+            for i, year in enumerate(observation_years):
+                with cols[i + 1]:
+                    value = item_data.get(str(year))
+                    if pd.notna(value):
+                        st.markdown(f"{chart_gen.format_number(value, 0)}")
+                    else:
+                        st.markdown("—")
+
+            # Second row: Empty for item name, delta indicators below values
+            cols = st.columns(col_widths)
+            with cols[0]:
+                st.markdown("&nbsp;")  # Placeholder under item name
+
+            for i, year in enumerate(observation_years):
+                with cols[i + 1]:
+                    if i == 0:
+                        st.markdown("—")  # First year has no delta
+                    else:
+                        prev_year = observation_years[i - 1]
+                        current_val = item_data.get(str(year))
+                        prev_val = item_data.get(str(prev_year))
+
+                        if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
+                            delta = ((current_val - prev_val) / prev_val) * 100
+                            if delta > 0:
+                                st.markdown(f"<small style='color:green'>↑ +{delta:.1f}%</small>", unsafe_allow_html=True)
+                            elif delta < 0:
+                                st.markdown(f"<small style='color:red'>↓ {abs(delta):.1f}%</small>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<small>→ 0.0%</small>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("—")
+
+            st.markdown("---")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -569,22 +614,35 @@ def _display_cash_flow_statement(df_cash_flow: pd.DataFrame, chart_gen):
     if 'firm_id' in numeric_cols:
         numeric_cols.remove('firm_id')
 
-    # Group by cash flow categories
-    operating_cols = [col for col in numeric_cols if any(x in col.lower() for x in ['operating', 'ocf', 'working'])]
-    investing_cols = [col for col in numeric_cols if any(x in col.lower() for x in ['investing', 'icapex', 'capex'])]
-    financing_cols = [col for col in numeric_cols if any(x in col.lower() for x in ['financing', 'dividend', 'stock'])]
+    # Define exact variable order according to guidelines
+    cash_flow_variables = [
+        'net_income', 'depreciation', 'change_receivables', 'change_inventory', 'change_payables',
+        'cash_flow_operations', 'capex', 'asset_disposal_proceeds', 'cash_flow_investing',
+        'change_long_term_debt', 'change_current_debt', 'equity_injection', 'dividends_paid',
+        'cash_flow_financing', 'net_cash_flow', 'cash_beginning', 'cash_ending'
+    ]
 
-    # Create column layout: Item + years + change %
+    # Create column layout: Item + years (no change column)
     num_years = len(observation_years)
-    col_widths = [3] + [1.2] * num_years + [1]  # Item column + year columns + change column
+    col_widths = [3] + [1.2] * num_years  # Item column + year columns
 
-    # Helper function to display a category
-    def _display_cash_flow_category(category_name, cols_list):
-        if not cols_list:
-            return
+    # Create data structure for display using exact variable order
+    cash_flow_data = {}
 
-        st.markdown(f"### 📊 {category_name}")
+    for var_name in cash_flow_variables:
+        if var_name in numeric_cols:
+            display_name = var_name.replace('_', ' ').title()
+            cash_flow_data[display_name] = {}
 
+            for year in observation_years:
+                year_data = df_cash_flow[df_cash_flow['year'] == year]
+                if not year_data.empty and var_name in year_data.columns:
+                    value = year_data[var_name].iloc[0]
+                    cash_flow_data[display_name][str(year)] = value if pd.notna(value) else None
+                else:
+                    cash_flow_data[display_name][str(year)] = None
+
+    if cash_flow_data:
         # Headers
         cols = st.columns(col_widths)
         with cols[0]:
@@ -592,39 +650,15 @@ def _display_cash_flow_statement(df_cash_flow: pd.DataFrame, chart_gen):
         for i, year in enumerate(observation_years):
             with cols[i + 1]:
                 st.markdown(f"**{year}**")
-        with cols[-1]:
-            st.markdown("**Change %**")
         st.markdown("---")
 
-        # Data rows
-        for col in cols_list:
-            display_name = col.replace('_', ' ').title()
-            item_data = {}
-
-            for year in observation_years:
-                year_data = df_cash_flow[df_cash_flow['year'] == year]
-                if not year_data.empty and col in year_data.columns:
-                    value = year_data[col].iloc[0]
-                    item_data[str(year)] = value if pd.notna(value) else None
-                else:
-                    item_data[str(year)] = None
-
-            # Calculate YoY change percentages
-            if len(observation_years) >= 2:
-                current_val = item_data.get(str(observation_years[-1]))
-                prev_val = item_data.get(str(observation_years[-2]))
-
-                if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
-                    change_pct = ((current_val - prev_val) / prev_val) * 100
-                    item_data['Change %'] = change_pct
-                else:
-                    item_data['Change %'] = None
-
-            # Display row
+        # Data rows with deltas below values (in specified order)
+        for item_name, item_data in cash_flow_data.items():
+            # First row: Item name and values
             cols = st.columns(col_widths)
 
             with cols[0]:
-                st.markdown(f"**{display_name}**")
+                st.markdown(f"**{item_name}**")
 
             for i, year in enumerate(observation_years):
                 with cols[i + 1]:
@@ -634,28 +668,32 @@ def _display_cash_flow_statement(df_cash_flow: pd.DataFrame, chart_gen):
                     else:
                         st.markdown("—")
 
-            with cols[-1]:
-                change_pct = item_data.get('Change %')
-                if pd.notna(change_pct):
-                    if change_pct > 0:
-                        st.markdown(f"📈 +{change_pct:.1f}%")
-                    elif change_pct < 0:
-                        st.markdown(f"📉 {change_pct:.1f}%")
+            # Second row: Empty for item name, delta indicators below values
+            cols = st.columns(col_widths)
+            with cols[0]:
+                st.markdown("&nbsp;")  # Placeholder under item name
+
+            for i, year in enumerate(observation_years):
+                with cols[i + 1]:
+                    if i == 0:
+                        st.markdown("—")  # First year has no delta
                     else:
-                        st.markdown("➡️ 0.0%")
-                else:
-                    st.markdown("—")
+                        prev_year = observation_years[i - 1]
+                        current_val = item_data.get(str(year))
+                        prev_val = item_data.get(str(prev_year))
+
+                        if pd.notna(current_val) and pd.notna(prev_val) and prev_val != 0:
+                            delta = ((current_val - prev_val) / prev_val) * 100
+                            if delta > 0:
+                                st.markdown(f"<small style='color:green'>↑ +{delta:.1f}%</small>", unsafe_allow_html=True)
+                            elif delta < 0:
+                                st.markdown(f"<small style='color:red'>↓ {abs(delta):.1f}%</small>", unsafe_allow_html=True)
+                            else:
+                                st.markdown("<small>→ 0.0%</small>", unsafe_allow_html=True)
+                        else:
+                            st.markdown("—")
 
             st.markdown("---")
-
-    # Display Operating Cash Flow
-    _display_cash_flow_category("Operating Cash Flow", operating_cols)
-
-    # Display Investing Cash Flow
-    _display_cash_flow_category("Investing Cash Flow", investing_cols)
-
-    # Display Financing Cash Flow
-    _display_cash_flow_category("Financing Cash Flow", financing_cols)
 
     st.markdown('</div>', unsafe_allow_html=True)
 

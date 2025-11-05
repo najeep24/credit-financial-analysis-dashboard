@@ -106,13 +106,23 @@ def _display_kpi_section(ratio_name: str, df_ratios: pd.DataFrame, df_agg: pd.Da
         abs_change = 0
         pct_change = 0
 
-    # Create delta text (without arrow since delta already provides it)
+    # Create delta text - fixed arrow direction and color logic
     if pd.notna(previous_value):
-        delta_text = f"{abs(abs_change):.3f}/{abs(pct_change):.1f}%"
-        delta_color = "normal" if abs_change >= 0 else "inverse"
+        if abs_change > 0:
+            # Positive change: arrow up, green color
+            delta_text = f"↑ +{abs_change:.3f}/+{abs(pct_change):.1f}%"
+            delta_color = "normal"  # Green for positive
+        elif abs_change < 0:
+            # Negative change: arrow down, red color
+            delta_text = f"↓ {abs_change:.3f}/{pct_change:.1f}%"
+            delta_color = "inverse"  # Red for negative (inverse makes red)
+        else:
+            # No change
+            delta_text = "→ 0.000/0.0%"
+            delta_color = "off"  # No color for neutral
     else:
         delta_text = "N/A"
-        delta_color = "normal"
+        delta_color = "off"
 
     # Display single metric with delta
     st.metric(
