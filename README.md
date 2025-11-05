@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Credit Analysis Dashboard
 
 A comprehensive Streamlit dashboard for credit analysis, designed as a copilot for credit analysts. This dashboard provides quick, explainable, and actionable insights from preprocessed credit analysis data.
@@ -154,3 +155,6 @@ structure_analysis, genai_recommendation
 - AI-powered insights integration
 - Advanced data validation
 - Deployment configuration
+=======
+# credit-financial-analysis-dashboard
+>>>>>>> 2f015a9818f2c48bfe33827b0015e070553eb60e
