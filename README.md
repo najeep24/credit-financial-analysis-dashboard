@@ -11,6 +11,21 @@ This system addresses the critical need for automated, explainable, and reliable
 - **Interactive Dashboard**: Professional Streamlit interface for credit analysts and decision-makers
 - **Regulatory Compliance**: Complete audit trail and documented decision rationale
 
+## **Dashboard demo**
+
+### **Analysis Summary**
+
+![demo-giff-credit1](https://github.com/user-attachments/assets/c0149667-eca3-42e0-bca5-5da4dab36924)
+
+### **Sub-ratio Explorer**
+
+![demo-giff-credit2](https://github.com/user-attachments/assets/57e99bb0-21a0-4663-8c59-8f7528ba667d)
+
+### **Financial Statements**
+
+![demo-giff-credit3](https://github.com/user-attachments/assets/ec715539-70df-47d4-bfa5-5abf7422aee6)
+
+
 ## 📊 System Architecture
 
 ```
