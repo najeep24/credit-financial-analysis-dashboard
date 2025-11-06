@@ -275,4 +275,34 @@ credit-financial-risk-analysis/
 6. **Prepare Data**: Ensure all required data files are available
 7. **Launch Dashboard**: Run `streamlit run app.py` and explore features
 
-**Transform your credit analysis process from manual, time-consuming work to efficient, data-driven decision-making with our comprehensive credit risk assessment system.**
+### Scoring Weights
+- Liquidity: 15%
+- Solvency: 15%
+- Profitability: 20%
+- Activity: 10%
+- Coverage: 10%
+- Cashflow: 15%
+- Structure: 15%
+
+## Status Color Mapping
+- **Strong/Good**: Green (#22c55e)
+- **Moderate**: Yellow (#eab308)
+- **Watch**: Orange (#f97316)
+- **Weak/Poor**: Red (#ef4444)
+
+## Notes
+
+- This dashboard is designed for **single firm analysis** (prototype focus)
+- File paths are **fixed** and not configurable in this version
+- No **data validation** is performed - assumes clean, preprocessed data
+- **Export features** are disabled in this prototype version
+- Dashboard runs **locally** only
+
+## Future Enhancements
+
+- Multi-firm comparison mode
+- File upload functionality
+- PDF export capabilities
+- AI-powered insights integration
+- Advanced data validation
+- Deployment configuration
